@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package homechain.v1;
+
+import "gogoproto/gogo.proto";
+import "cosmos/query/v1/query.proto";
+import "homechain/poh/v1/poh.proto";
+import "homechain/mining/v1/mining.proto";
+import "homechain/reward/v1/reward.proto";
+import "homechain/gov/v1/gov.proto";
+
+option go_package = "github.com/homechain/homechain/types";
+
+// Query service defines the gRPC querier service
+service Query {
+  // PoH queries
+  rpc CurrentPoH(homechain.poh.v1.QueryCurrentPoHRequest) returns (homechain.poh.v1.QueryCurrentPoHResponse);
+  rpc PoHSequence(homechain.poh.v1.QueryPoHSequenceRequest) returns (homechain.poh.v1.QueryPoHSequenceResponse);
+  
+  // Mining queries
+  rpc Miner(homechain.mining.v1.QueryMinerRequest) returns (homechain.mining.v1.QueryMinerResponse);
+  rpc Miners(homechain.mining.v1.QueryMinersRequest) returns (homechain.mining.v1.QueryMinersResponse);
+  rpc ShareHistory(homechain.mining.v1.QueryShareHistoryRequest) returns (homechain.mining.v1.QueryShareHistoryResponse);
+  
+  // Reward queries
+  rpc RewardPool(homechain.reward.v1.QueryRewardPoolRequest) returns (homechain.reward.v1.QueryRewardPoolResponse);
+  rpc RewardPools(homechain.reward.v1.QueryRewardPoolsRequest) returns (homechain.reward.v1.QueryRewardPoolsResponse);
+  rpc Referral(homechain.reward.v1.QueryReferralRequest) returns (homechain.reward.v1.QueryReferralResponse);
+  rpc ReferralTree(homechain.reward.v1.QueryReferralTreeRequest) returns (homechain.reward.v1.QueryReferralTreeResponse);
+  rpc PendingRewards(homechain.reward.v1.QueryPendingRewardsRequest) returns (homechain.reward.v1.QueryPendingRewardsResponse);
+  
+  // Governance queries
+  rpc ECDSASignature(homechain.gov.v1.QueryECDSASignatureRequest) returns (homechain.gov.v1.QueryECDSASignatureResponse);
+}

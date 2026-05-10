@@ -1,0 +1,1225 @@
+openapi: 3.0.0
+info:
+  title: HomeChain V10 API
+  description: REST API for HomeChain blockchain - PoH Mining, Referral System, Node Runner Rewards, EVM Integration
+  version: 1.0.0
+  contact:
+    name: HomeChain Development Team
+    url: https://homechain.io
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: http://localhost:1317
+    description: Local development
+  - url: https://api.homechain.io
+    description: Production API
+
+tags:
+  - name: Mining
+    description: Proof of Hashrate mining operations
+  - name: Referral
+    description: 21-level referral system
+  - name: Node
+    description: Node runner operations
+  - name: Validator
+    description: Dynamic validator set management
+  - name: Governance
+    description: Governance operations
+  - name: EVM
+    description: Ethereum Virtual Machine operations
+  - name: Info
+    description: Chain information and status
+
+paths:
+  /mining/work:
+    get:
+      tags:
+        - Mining
+      summary: Get current PoH work
+      description: Retrieve current PoH sequence and target for mining
+      operationId: getMiningWork
+      responses:
+        '200':
+          description: Current PoH work
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MiningWorkResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /mining/submit:
+    post:
+      tags:
+        - Mining
+      summary: Submit mining share
+      description: Submit a verified PoH share for reward
+      operationId: submitMiningShare
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitShareRequest'
+      responses:
+        '200':
+          description: Share accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitShareResponse'
+        '400':
+          description: Invalid share
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /mining/tier/{address}:
+    get:
+      tags:
+        - Mining
+      summary: Get miner tier
+      description: Get device tier and hashrate requirements for a miner
+      operationId: getMinerTier
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Miner wallet address
+      responses:
+        '200':
+          description: Miner tier information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MinerTierResponse'
+        '404':
+          description: Miner not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /mining/pending/{address}:
+    get:
+      tags:
+        - Mining
+      summary: Get pending rewards
+      description: Get pending mining rewards before settlement
+      operationId: getPendingRewards
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Miner wallet address
+      responses:
+        '200':
+          description: Pending rewards
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingRewardsResponse'
+        '404':
+          description: Miner not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /referral/generate:
+    post:
+      tags:
+        - Referral
+      summary: Generate random referral code
+      description: Generate a random 6-character Base58 referral code
+      operationId: generateReferralCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - signature
+              properties:
+                address:
+                  type: string
+                  description: Miner wallet address
+                signature:
+                  type: string
+                  description: Signature of address
+      responses:
+        '200':
+          description: Code generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralCodeResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /referral/register:
+    post:
+      tags:
+        - Referral
+      summary: Register custom referral code
+      description: Register a custom referral code (with fee)
+      operationId: registerReferralCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - address
+                - signature
+                - fee
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+                  maxLength: 6
+                  description: Custom referral code
+                address:
+                  type: string
+                  description: Miner wallet address
+                signature:
+                  type: string
+                  description: Signature of code + address
+                fee:
+                  type: string
+                  description: Fee in aHOME (1 HOME for custom, 10 HOME for vanity)
+      responses:
+        '200':
+          description: Code registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralCodeResponse'
+        '400':
+          description: Invalid code or insufficient fee
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /referral/code/{code}:
+    get:
+      tags:
+        - Referral
+      summary: Get referral code info
+      description: Get information about a referral code
+      operationId: getReferralCode
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Referral code
+      responses:
+        '200':
+          description: Code information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralCodeInfoResponse'
+        '404':
+          description: Code not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /referral/chain/{address}:
+    get:
+      tags:
+        - Referral
+      summary: Get referral chain
+      description: Get 21-level referral chain for an address
+      operationId: getReferralChain
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Miner wallet address
+      responses:
+        '200':
+          description: Referral chain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralChainResponse'
+        '404':
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /referral/branch/{address}:
+    get:
+      tags:
+        - Referral
+      summary: Get referral branch power
+      description: Get total power and branch cap status
+      operationId: getReferralBranch
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Miner wallet address
+      responses:
+        '200':
+          description: Branch information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReferralBranchResponse'
+        '404':
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /node/register:
+    post:
+      tags:
+        - Node
+      summary: Register as node runner
+      description: Register as a node runner for heartbeat and rewards
+      operationId: registerNode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - signature
+              properties:
+                address:
+                  type: string
+                  description: Node runner wallet address
+                signature:
+                  type: string
+                  description: Signature of address
+      responses:
+        '200':
+          description: Node registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeRegisterResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /node/heartbeat:
+    post:
+      tags:
+        - Node
+      summary: Submit heartbeat
+      description: Submit heartbeat to maintain uptime
+      operationId: submitHeartbeat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - block_height
+                - signature
+              properties:
+                address:
+                  type: string
+                  description: Node runner wallet address
+                block_height:
+                  type: integer
+                  description: Current block height
+                signature:
+                  type: string
+                  description: Signature of address + block_height
+      responses:
+        '200':
+          description: Heartbeat recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeartbeatResponse'
+        '400':
+          description: Invalid heartbeat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /node/status/{address}:
+    get:
+      tags:
+        - Node
+      summary: Get node status
+      description: Get node runner status and rewards
+      operationId: getNodeStatus
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Node runner wallet address
+      responses:
+        '200':
+          description: Node status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeStatusResponse'
+        '404':
+          description: Node not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /node/pool:
+    get:
+      tags:
+        - Node
+      summary: Get node pool
+      description: Get Node Runner reward pool information
+      operationId: getNodePool
+      responses:
+        '200':
+          description: Node pool information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodePoolResponse'
+
+  /nodestake/stake:
+    post:
+      tags:
+        - Node
+      summary: Stake for boost
+      description: Stake HOME tokens for staking boost (1x-101x)
+      operationId: stakeForBoost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - amount
+                - signature
+              properties:
+                address:
+                  type: string
+                  description: Node runner wallet address
+                amount:
+                  type: string
+                  description: Amount to stake in aHOME
+                signature:
+                  type: string
+                  description: Signature of address + amount
+      responses:
+        '200':
+          description: Stake successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StakeResponse'
+        '400':
+          description: Invalid amount or signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /nodestake/unstake:
+    post:
+      tags:
+        - Node
+      summary: Unstake
+      description: Unstake HOME tokens (21-day unbonding period)
+      operationId: unstake
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - amount
+                - signature
+              properties:
+                address:
+                  type: string
+                  description: Node runner wallet address
+                amount:
+                  type: string
+                  description: Amount to unstake in aHOME
+                signature:
+                  type: string
+                  description: Signature of address + amount
+      responses:
+        '200':
+          description: Unstake initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnstakeResponse'
+        '400':
+          description: Invalid amount or signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /validator/set:
+    get:
+      tags:
+        - Validator
+      summary: Get validator set
+      description: Get current Top 100 validator set
+      operationId: getValidatorSet
+      responses:
+        '200':
+          description: Validator set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidatorSetResponse'
+
+  /validator/status/{address}:
+    get:
+      tags:
+        - Validator
+      summary: Get validator status
+      description: Get validator status and rank
+      operationId: getValidatorStatus
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Validator address
+      responses:
+        '200':
+          description: Validator status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidatorStatusResponse'
+        '404':
+          description: Validator not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /validator/power/{address}:
+    get:
+      tags:
+        - Validator
+      summary: Get validator power
+      description: Get validator effective power and voting power
+      operationId: getValidatorPower
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Validator address
+      responses:
+        '200':
+          description: Validator power
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidatorPowerResponse'
+        '404':
+          description: Validator not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /gov/proposals:
+    get:
+      tags:
+        - Governance
+      summary: List proposals
+      description: List all governance proposals
+      operationId: listProposals
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [deposit_period, voting_period, passed, rejected]
+          description: Filter by status
+      responses:
+        '200':
+          description: Proposals list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalsResponse'
+
+  /gov/proposal/{id}:
+    get:
+      tags:
+        - Governance
+      summary: Get proposal
+      description: Get proposal details
+      operationId: getProposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Proposal ID
+      responses:
+        '200':
+          description: Proposal details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalResponse'
+        '404':
+          description: Proposal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /gov/submit:
+    post:
+      tags:
+        - Governance
+      summary: Submit proposal
+      description: Submit a governance proposal
+      operationId: submitProposal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - changes
+                - deposit
+                - proposer
+                - signature
+              properties:
+                title:
+                  type: string
+                  description: Proposal title
+                description:
+                  type: string
+                  description: Proposal description
+                changes:
+                  type: array
+                  items:
+                    type: object
+                  description: Parameter changes
+                deposit:
+                  type: string
+                  description: Deposit amount in aHOME
+                proposer:
+                  type: string
+                  description: Proposer address
+                signature:
+                  type: string
+                  description: Signature of proposal
+      responses:
+        '200':
+          description: Proposal submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitProposalResponse'
+        '400':
+          description: Invalid proposal or insufficient deposit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /gov/vote:
+    post:
+      tags:
+        - Governance
+      summary: Vote on proposal
+      description: Vote on a governance proposal
+      operationId: voteProposal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - proposal_id
+                - option
+                - voter
+                - signature
+              properties:
+                proposal_id:
+                  type: integer
+                  description: Proposal ID
+                option:
+                  type: string
+                  enum: [yes, no, abstain, veto]
+                  description: Vote option
+                voter:
+                  type: string
+                  description: Voter address
+                signature:
+                  type: string
+                  description: Signature of vote
+      responses:
+        '200':
+          description: Vote submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteResponse'
+        '400':
+          description: Invalid vote
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /gov/voting-record/{address}:
+    get:
+      tags:
+        - Governance
+      summary: Get voting record
+      description: Get validator voting record for inactivity slashing
+      operationId: getVotingRecord
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Validator address
+      responses:
+        '200':
+          description: Voting record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VotingRecordResponse'
+        '404':
+          description: Validator not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /epoch/info:
+    get:
+      tags:
+        - Info
+      summary: Get epoch info
+      description: Get current epoch information
+      operationId: getEpochInfo
+      responses:
+        '200':
+          description: Epoch information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpochInfoResponse'
+
+  /poh/sequence:
+    get:
+      tags:
+        - Info
+      summary: Get PoH sequence
+      description: Get current PoH sequence hash
+      operationId: getPohSequence
+      responses:
+        '200':
+          description: PoH sequence
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PohSequenceResponse'
+
+components:
+  schemas:
+    MiningWorkResponse:
+      type: object
+      properties:
+        sequence:
+          type: string
+          description: Current PoH sequence hash
+        epoch:
+          type: integer
+          description: Current epoch
+        rate:
+          type: integer
+          description: Current epoch rate (HOME/block)
+        target:
+          type: string
+          description: Target difficulty
+        expires_at:
+          type: integer
+          description: Work expiration block height
+
+    SubmitShareRequest:
+      type: object
+      required:
+        - prev_hash
+        - nonce
+        - miner
+        - signature
+      properties:
+        prev_hash:
+          type: string
+          description: Previous PoH hash
+        nonce:
+          type: string
+          description: Nonce for Argon2id
+        miner:
+          type: string
+          description: Miner wallet address
+        signature:
+          type: string
+          description: Signature of share
+
+    SubmitShareResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [accepted, rejected]
+        verified_hash:
+          type: string
+          description: Verified hash
+        message:
+          type: string
+          description: Status message
+
+    MinerTierResponse:
+      type: object
+      properties:
+        address:
+          type: string
+        tier:
+          type: string
+          enum: [server, laptop, phone_plus, phone]
+        avg_hashrate:
+          type: integer
+          description: Average hashrate (H/s)
+        min_daily_hash:
+          type: integer
+          description: Minimum daily hash requirement
+        hash_submitted_today:
+          type: integer
+          description: Hash submitted today
+        is_active:
+          type: boolean
+        progress_pct:
+          type: number
+          description: Progress percentage for tier
+
+    PendingRewardsResponse:
+      type: object
+      properties:
+        address:
+          type: string
+        pending_rewards:
+          type: string
+          description: Pending rewards in aHOME
+        period_rewards:
+          type: string
+          description: Period rewards in aHOME
+        referral_bonus:
+          type: string
+          description: Referral bonus in aHOME
+
+    ReferralCodeResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        address:
+          type: string
+        registered_at:
+          type: integer
+          description: Unix timestamp
+
+    ReferralCodeInfoResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        owner:
+          type: string
+        registered_at:
+          type: integer
+        total_referrals:
+          type: integer
+        total_earned:
+          type: string
+
+    ReferralChainResponse:
+      type: object
+      properties:
+        address:
+          type: string
+        chain:
+          type: array
+          items:
+            type: object
+            properties:
+              level:
+                type: integer
+              address:
+                type: string
+              is_active:
+                type: boolean
+        depth:
+          type: integer
+          description: Current chain depth
+
+    ReferralBranchResponse:
+      type: object
+      properties:
+        address:
+          type: string
+        total_power:
+          type: string
+        branch_power:
+          type: string
+        branch_cap_pct:
+          type: number
+        at_cap:
+          type: boolean
+
+    NodeRegisterResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        node_id:
+          type: string
+        registered_at:
+          type: integer
+
+    HeartbeatResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        next_heartbeat:
+          type: integer
+        heartbeats_count:
+          type: integer
+
+    NodeStatusResponse:
+      type: object
+      properties:
+        address:
+          type: string
+        registered_at:
+          type: integer
+        uptime_pct:
+          type: number
+        heartbeats:
+          type: integer
+        stake:
+          type: string
+        boost_factor:
+          type: integer
+        effective_power:
+          type: string
+        rewards_earned:
+          type: string
+        in_validator_set:
+          type: boolean
+        validator_rank:
+          type: integer
+
+    NodePoolResponse:
+      type: object
+      properties:
+        total_pool:
+          type: string
+        qualifying_nodes:
+          type: integer
+        total_effective_power:
+          type: string
+        last_distribution:
+          type: string
+          description: ISO 8601 timestamp
+        estimated_share_per_power:
+          type: string
+
+    StakeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        staked_amount:
+          type: string
+        boost_factor:
+          type: integer
+        effective_power:
+          type: string
+
+    UnstakeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        unstaked_amount:
+          type: string
+        unlock_time:
+          type: integer
+          description: Unix timestamp (21 days from now)
+
+    ValidatorSetResponse:
+      type: object
+      properties:
+        epoch:
+          type: integer
+        block_start:
+          type: integer
+        block_end:
+          type: integer
+        validators:
+          type: array
+          items:
+            type: object
+            properties:
+              rank:
+                type: integer
+              address:
+                type: string
+              power:
+                type: string
+              is_random:
+                type: boolean
+        total_power:
+          type: string
+        my_power:
+          type: string
+        my_rank:
+          type: integer
+
+    ValidatorStatusResponse:
+      type: object
+      properties:
+        validator_address:
+          type: string
+        in_active_set:
+          type: boolean
+        rank:
+          type: integer
+        effective_power:
+          type: string
+        voting_power:
+          type: string
+
+    ValidatorPowerResponse:
+      type: object
+      properties:
+        address:
+          type: string
+        effective_power:
+          type: string
+        voting_power:
+          type: string
+        token_power:
+          type: string
+        hash_power:
+          type: string
+        normalized_hashrate:
+          type: number
+
+    ProposalsResponse:
+      type: object
+      properties:
+        proposals:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              title:
+                type: string
+              status:
+                type: string
+              voting_start_time:
+                type: string
+              voting_end_time:
+                type: string
+              total_deposit:
+                type: string
+
+    ProposalResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        proposer:
+          type: string
+        deposit:
+          type: string
+        voting_start_time:
+          type: string
+        voting_end_time:
+          type: string
+        votes:
+          type: object
+          properties:
+            yes:
+              type: string
+            no:
+              type: string
+            abstain:
+              type: string
+            veto:
+              type: string
+        tally:
+          type: object
+          properties:
+            yes:
+              type: string
+            no:
+              type: string
+            abstain:
+              type: string
+            veto:
+              type: string
+
+    SubmitProposalResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        proposal_id:
+          type: integer
+        deposit:
+          type: string
+
+    VoteResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        proposal_id:
+          type: integer
+        option:
+          type: string
+
+    VotingRecordResponse:
+      type: object
+      properties:
+        address:
+          type: string
+        proposals_voted:
+          type: array
+          items:
+            type: integer
+        proposals_missed:
+          type: array
+          items:
+            type: integer
+        consecutive_misses:
+          type: integer
+        total_slashed:
+          type: string
+
+    EpochInfoResponse:
+      type: object
+      properties:
+        epoch:
+          type: integer
+        rate:
+          type: integer
+        circulating_supply:
+          type: string
+        max_supply:
+          type: string
+        supply_to_next_epoch:
+          type: string
+        progress_pct:
+          type: number
+
+    PohSequenceResponse:
+      type: object
+      properties:
+        sequence:
+          type: string
+        epoch:
+          type: integer
+        block_height:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        details:
+          type: object

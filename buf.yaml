@@ -1,0 +1,27 @@
+version: v1
+name: buf.build/homechain/homechain
+
+deps:
+  - buf.build/cosmos/cosmos-sdk:v0.50.0
+  - buf.build/cosmos/gogo-proto:v1.7.2
+  - buf.build/googleapis/googleapis:v1.3.0
+
+lint:
+  use:
+    - DEFAULT
+  except:
+    - ENUM_ZERO_VALUE_SUFFIX
+    - ENUM_PASCAL_CASE
+    - FIELD_LOWER_SNAKE_CASE
+  ignore:
+    - third_party
+    - buf
+
+breaking:
+  use:
+    - FILE
+
+lint:
+  rpc:
+    same_name: allow
+  service_suffix: Service

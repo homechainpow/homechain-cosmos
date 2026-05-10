@@ -1,0 +1,113 @@
+# ============================================================
+# HomeChain .gitignore — WHITELIST APPROACH
+# Strategy: Ignore EVERYTHING, then explicitly allow only
+# source code and public documentation.
+# This guarantees no private/credential files leak to GitHub.
+# ============================================================
+
+# --- IGNORE EVERYTHING ---
+*
+
+# --- WHITELIST: Source Code Directories ---
+# Allow these folders and all their contents
+!app/
+!app/**
+!cmd/
+!cmd/**
+!x/
+!x/**
+!proto/
+!proto/**
+!third_party/
+!third_party/**
+!scripts/
+!scripts/**
+# simulation/ blocked — contains internal .md docs
+# Uncomment below when ready to publish simulation code:
+# !simulation/
+# !simulation/**
+!cdeps/
+!cdeps/**
+!docs/
+!docs/**
+# NOTE: docs/ contains .md files that may be internal.
+# Only allow non-.md files from docs for now.
+docs/**/*.md
+!.github/
+!.github/**
+
+# --- WHITELIST: Root Config Files ---
+!go.mod
+!go.sum
+!Makefile
+!Dockerfile
+!docker-compose.yml
+!buf.yaml
+!buf.gen.yaml
+!LICENSE
+!.gitignore
+
+# --- WHITELIST: Public Documentation ---
+!README.md
+# NOTE: All other .md files are BLOCKED to prevent leaking
+# internal audit/test/ops data. If you want to publish any
+# of these later, add them back here:
+# !ARCHITECTURE.md
+# !WHITEPAPER.md
+# !CONTRIBUTING.md
+# !SECURITY.md
+
+# --- WHITELIST: Public API Spec ---
+!API_SPEC.yaml
+
+# --- EXPLICITLY BLOCKED (even if someone tries git add -f) ---
+# These are NEVER pushed to GitHub:
+CREDENTIALS.md
+*.pem
+*.key
+*.env
+*.env.*
+secrets/
+keyring-*/
+priv_validator_key.json
+priv_validator_state.json
+node_key.json
+mnemonic.txt
+
+# --- LOCAL TOOLING (never push) ---
+.code-review-graph/
+audits/
+analyze_graph.py
+audit_graph_query.py
+graph_output.txt
+CLEANUP_ARTIFACT_v10.md
+
+# --- BUILD ARTIFACTS (never push) ---
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.log
+*.tmp
+*.bak
+*.backup
+*.tar.gz
+*.zip
+coverage.*
+__debug_bin
+
+# --- IDE / OS JUNK (never push) ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini

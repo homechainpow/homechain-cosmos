@@ -1,0 +1,85 @@
+version: '3.8'
+
+# NOTE: For first-time setup, run: docker-compose run --rm node0 homechaind init --chain-id homechain_9000-1
+# Then get NodeIDs: docker-compose exec node0 homechaind tendermint show-node-id
+# Update P2P_PERSISTENT_PEERS below with actual NodeIDs (40-char hex@host:port format)
+
+services:
+  node0:
+    container_name: homechain-node0
+    image: homechain/homechain:latest
+    ports:
+      - "26656:26656"  # P2P
+      - "26657:26657"  # RPC
+      - "1317:1317"    # REST API
+      - "8545:8545"    # EVM JSON-RPC
+      - "8546:8546"    # EVM WebSocket
+    volumes:
+      - ./data/node0:/root/.homechain
+      - ./scripts:/scripts
+    environment:
+      - MONIKER=node0
+      - P2P_SEEDS=node1:26656,node2:26656,node3:26656
+      - P2P_PERSISTENT_PEERS=  # Populate after init with: nodeid@node1:26656,nodeid@node2:26656,nodeid@node3:26656
+    entrypoint: ["/scripts/entrypoint.sh"]
+    command: ["start"]
+    networks:
+      - homechain-network
+
+  node1:
+    container_name: homechain-node1
+    image: homechain/homechain:latest
+    ports:
+      - "26658:26656"
+      - "26659:26657"
+    volumes:
+      - ./data/node1:/root/.homechain
+      - ./scripts:/scripts
+    environment:
+      - MONIKER=node1
+      - P2P_SEEDS=node0:26656,node2:26656,node3:26656
+      - P2P_PERSISTENT_PEERS=
+    entrypoint: ["/scripts/entrypoint.sh"]
+    command: ["start"]
+    networks:
+      - homechain-network
+
+  node2:
+    container_name: homechain-node2
+    image: homechain/homechain:latest
+    ports:
+      - "26660:26656"
+      - "26661:26657"
+    volumes:
+      - ./data/node2:/root/.homechain
+      - ./scripts:/scripts
+    environment:
+      - MONIKER=node2
+      - P2P_SEEDS=node0:26656,node1:26656,node3:26656
+      - P2P_PERSISTENT_PEERS=
+    entrypoint: ["/scripts/entrypoint.sh"]
+    command: ["start"]
+    networks:
+      - homechain-network
+
+  node3:
+    container_name: homechain-node3
+    image: homechain/homechain:latest
+    ports:
+      - "26662:26656"
+      - "26663:26657"
+    volumes:
+      - ./data/node3:/root/.homechain
+      - ./scripts:/scripts
+    environment:
+      - MONIKER=node3
+      - P2P_SEEDS=node0:26656,node1:26656,node2:26656
+      - P2P_PERSISTENT_PEERS=
+    entrypoint: ["/scripts/entrypoint.sh"]
+    command: ["start"]
+    networks:
+      - homechain-network
+
+networks:
+  homechain-network:
+    driver: bridge

@@ -1,0 +1,75 @@
+name: Proto Generation
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'proto/**'
+  pull_request:
+    branches: [ main, master, develop ]
+    paths:
+      - 'proto/**'
+  workflow_dispatch:
+
+jobs:
+  proto-gen:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+        
+    - name: Setup protoc
+      uses: arduino/setup-protoc@v3
+      with:
+        version: '24.x'
+        
+    - name: Install protoc-gen-gogo
+      run: go install github.com/gogo/protobuf/protoc-gen-gogo@latest
+      
+    - name: Setup buf
+      uses: bufbuild/buf-setup-action@v1
+      with:
+        version: '1.28.1'
+        
+    - name: Generate protobuf files
+      run: |
+        export PATH="$PATH:$(go env GOPATH)/bin"
+        buf generate --template buf.gen.yaml || true
+        # Fallback: use protoc directly for custom modules
+        for mod in poh mining referral gov nodestake; do
+          if [ -f "proto/homechain/v1/${mod}.proto" ]; then
+            protoc \
+              --plugin=protoc-gen-gogo="$(go env GOPATH)/bin/protoc-gen-gogo" \
+              --gogo_out="x/${mod}/types" \
+              --proto_path=proto \
+              --proto_path=third_party/cosmos-sdk/proto \
+              --proto_path=third_party/cosmos-sdk/third_party/proto \
+              "proto/homechain/v1/${mod}.proto"
+          fi
+        done
+        
+    - name: Check for changes
+      id: check
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Commit and push generated files
+      if: steps.check.outputs.changed == 'true' && github.event_name == 'push'
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add -A
+        git commit -m "chore: auto-generate protobuf files [skip ci]"
+        git push

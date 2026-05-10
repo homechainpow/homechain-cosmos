@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package homechain.poh.v1;
+
+import "gogoproto/gogo.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "github.com/homechain/homechain/x/poh/types";
+
+// PoHData represents Proof of History data
+message PoHData {
+  option (gogoproto.goproto_getters) = false;
+  
+  string prev_hash = 1;
+  string new_hash = 2;
+  uint64 difficulty = 3;
+  uint64 timestamp = 4;
+  bytes nonce = 5 [(gogoproto.customname) = "Nonce"];
+  bytes salt = 6 [(gogoproto.customname) = "Salt"];
+  uint32 version = 7;
+}
+
+// MsgSubmitPoH defines a message for submitting PoH data
+message MsgSubmitPoH {
+  option (gogoproto.goproto_getters) = false;
+  
+  string signer = 1;
+  PoHData poh_data = 2;
+  string signature = 3;
+}
+
+// MsgSubmitPoHResponse defines the response for submitting PoH data
+message MsgSubmitPoHResponse {}
+
+// MsgVerifyPoH defines a message for verifying PoH data
+message MsgVerifyPoH {
+  option (gogoproto.goproto_getters) = false;
+  
+  string signer = 1;
+  string hash = 2;
+}
+
+// MsgVerifyPoHResponse defines the response for verifying PoH data
+message MsgVerifyPoHResponse {
+  bool valid = 1;
+}
+
+// QueryCurrentPoHRequest defines the request for current PoH data
+message QueryCurrentPoHRequest {}
+
+// QueryCurrentPoHResponse defines the response for current PoH data
+message QueryCurrentPoHResponse {
+  PoHData poh_data = 1;
+}
+
+// QueryPoHSequenceRequest defines the request for PoH sequence
+message QueryPoHSequenceRequest {
+  uint64 height = 1;
+}
+
+// QueryPoHSequenceResponse defines the response for PoH sequence
+message QueryPoHSequenceResponse {
+  PoHData poh_data = 1;
+}
+
+// GenesisState defines the poh module's genesis state
+message GenesisState {
+  repeated PoHData poh_data = 1 [(gogoproto.nullable) = false];
+}

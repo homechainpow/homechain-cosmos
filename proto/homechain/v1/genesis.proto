@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package homechain.v1;
+
+import "gogoproto/gogo.proto";
+import "homechain/poh/v1/poh.proto";
+import "homechain/mining/v1/mining.proto";
+import "homechain/reward/v1/reward.proto";
+import "homechain/gov/v1/gov.proto";
+
+option go_package = "github.com/homechain/homechain/types";
+
+// GenesisState defines the homechain app's genesis state
+message GenesisState {
+  option (gogoproto.goproto_getters) = false;
+  
+  // Module genesis states
+  homechain.poh.v1.GenesisState poh = 1 [(gogoproto.nullable) = false];
+  homechain.mining.v1.GenesisState mining = 2 [(gogoproto.nullable) = false];
+  homechain.reward.v1.GenesisState reward = 3 [(gogoproto.nullable) = false];
+  homechain.gov.v1.GenesisState gov = 4 [(gogoproto.nullable) = false];
+  
+  // Global parameters
+  uint64 chain_id = 5;
+  uint64 start_time = 6;
+  string initial_hash = 7;
+  uint64 initial_difficulty = 8;
+}

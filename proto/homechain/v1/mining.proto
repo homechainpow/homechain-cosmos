@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package homechain.mining.v1;
+
+import "gogoproto/gogo.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "github.com/homechain/homechain/x/mining/types";
+
+// MinerInfo represents information about a miner
+message MinerInfo {
+  option (gogoproto.goproto_getters) = false;
+  
+  string address = 1;
+  string device_info = 2;
+  uint64 registered_at = 3;
+  bool is_active = 4;
+  uint64 last_share_at = 5;
+  uint64 total_shares = 6;
+  uint64 valid_shares = 7;
+}
+
+// ShareData represents mining share data
+message ShareData {
+  option (gogoproto.goproto_getters) = false;
+  
+  string miner = 1;
+  string prev_hash = 2;
+  string nonce = 3;
+  uint64 difficulty = 4;
+  uint64 timestamp = 5;
+}
+
+// MsgRegisterMiner defines a message for registering a miner
+message MsgRegisterMiner {
+  option (gogoproto.goproto_getters) = false;
+  
+  string address = 1;
+  string device_info = 2;
+  string signature = 3;
+}
+
+// MsgRegisterMinerResponse defines the response for registering a miner
+message MsgRegisterMinerResponse {}
+
+// MsgSubmitShare defines a message for submitting a mining share
+message MsgSubmitShare {
+  option (gogoproto.goproto_getters) = false;
+  
+  string miner = 1;
+  ShareData share_data = 2;
+  string signature = 3;
+}
+
+// MsgSubmitShareResponse defines the response for submitting a mining share
+message MsgSubmitShareResponse {
+  bool accepted = 1;
+  string reason = 2;
+}
+
+// MsgMinerHeartbeat defines a message for miner heartbeat
+message MsgMinerHeartbeat {
+  option (gogoproto.goproto_getters) = false;
+  
+  string miner = 1;
+  uint64 timestamp = 2;
+  uint64 nonce = 3;
+  string signature = 4;
+}
+
+// MsgMinerHeartbeatResponse defines the response for miner heartbeat
+message MsgMinerHeartbeatResponse {}
+
+// QueryMinerRequest defines the request for miner info
+message QueryMinerRequest {
+  string address = 1;
+}
+
+// QueryMinerResponse defines the response for miner info
+message QueryMinerResponse {
+  MinerInfo miner = 1;
+}
+
+// QueryMinersRequest defines the request for all miners
+message QueryMinersRequest {
+  string pagination = 1;
+}
+
+// QueryMinersResponse defines the response for all miners
+message QueryMinersResponse {
+  repeated MinerInfo miners = 1;
+  string pagination = 2;
+}
+
+// QueryShareHistoryRequest defines the request for share history
+message QueryShareHistoryRequest {
+  string miner = 1;
+  string pagination = 2;
+}
+
+// QueryShareHistoryResponse defines the response for share history
+message QueryShareHistoryResponse {
+  repeated ShareData shares = 1;
+  string pagination = 2;
+}
+
+// GenesisState defines the mining module's genesis state
+message GenesisState {
+  repeated MinerInfo miners = 1 [(gogoproto.nullable) = false];
+  repeated ShareData shares = 2 [(gogoproto.nullable) = false];
+}

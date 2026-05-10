@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+package homechain.referral.v1;
+
+import "gogoproto/gogo.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "github.com/homechain/homechain/x/referral/types";
+
+// ReferralInfo represents referral information
+message ReferralInfo {
+  option (gogoproto.goproto_getters) = false;
+  
+  string referrer = 1;
+  string referred = 2;
+  uint64 created_at = 3;
+  bool is_active = 4;
+  uint64 level = 5;
+}
+
+// RewardPool represents a reward pool
+message RewardPool {
+  option (gogoproto.goproto_getters) = false;
+  
+  string name = 1;
+  repeated cosmos.base.v1beta1.Coin balance = 2 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  uint64 last_settlement = 3;
+  bool is_active = 4;
+}
+
+// RewardClaim represents a reward claim
+message RewardClaim {
+  option (gogoproto.goproto_getters) = false;
+  
+  string recipient = 1;
+  repeated cosmos.base.v1beta1.Coin amount = 2 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  uint64 claimed_at = 3;
+  bool is_claimed = 4;
+}
+
+// MsgUpdateReferral defines a message for updating referral
+message MsgUpdateReferral {
+  option (gogoproto.goproto_getters) = false;
+  
+  string referrer = 1;
+  string referred = 2;
+  string signature = 3;
+}
+
+// MsgUpdateReferralResponse defines the response for updating referral
+message MsgUpdateReferralResponse {}
+
+// MsgClaimRewards defines a message for claiming rewards
+message MsgClaimRewards {
+  option (gogoproto.goproto_getters) = false;
+  
+  string recipient = 1;
+  string signature = 2;
+}
+
+// MsgClaimRewardsResponse defines the response for claiming rewards
+message MsgClaimRewardsResponse {
+  repeated cosmos.base.v1beta1.Coin claimed_amount = 1 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+}
+
+// MsgSettleRewards defines a message for settling rewards (internal)
+message MsgSettleRewards {
+  option (gogoproto.goproto_getters) = false;
+  
+  uint64 period = 1;
+  string authority = 2;
+}
+
+// MsgSettleRewardsResponse defines the response for settling rewards
+message MsgSettleRewardsResponse {
+  repeated cosmos.base.v1beta1.Coin total_settled = 1 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+}
+
+// QueryRewardPoolRequest defines the request for reward pool info
+message QueryRewardPoolRequest {
+  string name = 1;
+}
+
+// QueryRewardPoolResponse defines the response for reward pool info
+message QueryRewardPoolResponse {
+  RewardPool pool = 1;
+}
+
+// QueryRewardPoolsRequest defines the request for all reward pools
+message QueryRewardPoolsRequest {
+  string pagination = 1;
+}
+
+// QueryRewardPoolsResponse defines the response for all reward pools
+message QueryRewardPoolsResponse {
+  repeated RewardPool pools = 1;
+  string pagination = 2;
+}
+
+// QueryReferralRequest defines the request for referral info
+message QueryReferralRequest {
+  string address = 1;
+}
+
+// QueryReferralResponse defines the response for referral info
+message QueryReferralResponse {
+  ReferralInfo referral = 1;
+}
+
+// QueryReferralTreeRequest defines the request for referral tree
+message QueryReferralTreeRequest {
+  string root_address = 1;
+  uint64 max_depth = 2;
+}
+
+// QueryReferralTreeResponse defines the response for referral tree
+message QueryReferralTreeResponse {
+  repeated ReferralInfo referrals = 1;
+}
+
+// QueryPendingRewardsRequest defines the request for pending rewards
+message QueryPendingRewardsRequest {
+  string recipient = 1;
+}
+
+// QueryPendingRewardsResponse defines the response for pending rewards
+message QueryPendingRewardsResponse {
+  repeated cosmos.base.v1beta1.Coin amount = 1 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+}
+
+// GenesisState defines the reward module's genesis state
+message GenesisState {
+  repeated RewardPool pools = 1 [(gogoproto.nullable) = false];
+  repeated ReferralInfo referrals = 2 [(gogoproto.nullable) = false];
+  repeated RewardClaim claims = 3 [(gogoproto.nullable) = false];
+}

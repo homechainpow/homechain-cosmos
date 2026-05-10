@@ -1,0 +1,33 @@
+version: v1
+deps:
+  - buf.build/cosmos/cosmos-sdk:v0.50.0
+  - buf.build/cosmos/gogo-proto:v1.4.2
+  - buf.build/googleapis/googleapis:v1.3.0
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT
+  except:
+    - UNARY_RPC
+    - COMMENT_ENUM
+    - COMMENT_FIELD
+    - COMMENT_MESSAGE
+    - COMMENT_ONEOF
+    - COMMENT_RPC
+    - COMMENT_SERVICE
+    - PACKAGE_SAME_DIRECTORY
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    - RPC_REQUEST_RESPONSE_UNIQUE
+  ignore_only:
+    - PACKAGE_VERSION_SUFFIX
+    - FIELD_NOT_REQUIRED
+    - PACKAGE_DIRECTORY_MATCH
+    - SERVICE_SUFFIX
+    - ENUM_VALUE_PREFIX
+    - ENUM_ZERO_VALUE_SUFFIX
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME

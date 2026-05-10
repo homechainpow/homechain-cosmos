@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package homechain.gov.v1;
+
+import "gogoproto/gogo.proto";
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+import "cosmos/gov/v1/gov.proto";
+
+option go_package = "github.com/homechain/homechain/x/gov/types";
+
+// MsgSubmitProposal defines a message for submitting a governance proposal with ECDSA signature
+message MsgSubmitProposal {
+  option (gogoproto.goproto_getters) = false;
+  
+  cosmos.gov.v1.Content content = 1;
+  string proposer = 2;
+  repeated cosmos.base.v1beta1.Coin initial_deposit = 3 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  string ecdsa_signature = 4;
+  uint64 nonce = 5;
+}
+
+// MsgSubmitProposalResponse defines the response for submitting a proposal
+message MsgSubmitProposalResponse {
+  uint64 proposal_id = 1;
+}
+
+// MsgVote defines a message for voting on a proposal with ECDSA signature
+message MsgVote {
+  option (gogoproto.goproto_getters) = false;
+  
+  uint64 proposal_id = 1;
+  string voter = 2;
+  cosmos.gov.v1.VoteOption option = 3;
+  string ecdsa_signature = 4;
+  uint64 nonce = 5;
+}
+
+// MsgVoteResponse defines the response for voting
+message MsgVoteResponse {}
+
+// MsgVoteWeighted defines a message for weighted voting with ECDSA signature
+message MsgVoteWeighted {
+  option (gogoproto.goproto_getters) = false;
+  
+  uint64 proposal_id = 1;
+  string voter = 2;
+  repeated cosmos.gov.v1.WeightedVoteOption options = 3;
+  string ecdsa_signature = 4;
+  uint64 nonce = 5;
+}
+
+// MsgVoteWeightedResponse defines the response for weighted voting
+message MsgVoteWeightedResponse {}
+
+// MsgDeposit defines a message for depositing to a proposal with ECDSA signature
+message MsgDeposit {
+  option (gogoproto.goproto_getters) = false;
+  
+  uint64 proposal_id = 1;
+  string depositor = 2;
+  repeated cosmos.base.v1beta1.Coin amount = 3 [
+    (gogoproto.nullable) = false,
+    (gogoproto.castrepeated) = "github.com/cosmos/cosmos-sdk/types.Coins"
+  ];
+  string ecdsa_signature = 4;
+  uint64 nonce = 5;
+}
+
+// MsgDepositResponse defines the response for depositing
+message MsgDepositResponse {}
+
+// QueryECDSASignatureRequest defines the request for ECDSA signature verification
+message QueryECDSASignatureRequest {
+  string message = 1;
+  string signature = 2;
+  string address = 3;
+}
+
+// QueryECDSASignatureResponse defines the response for ECDSA signature verification
+message QueryECDSASignatureResponse {
+  bool valid = 1;
+  string error = 2;
+}
+
+// GenesisState defines the gov module's genesis state
+message GenesisState {
+  cosmos.gov.v1.GenesisState native_state = 1;
+  repeated string ecdsa_allowed_addresses = 2;
+}
