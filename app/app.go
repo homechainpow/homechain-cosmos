@@ -55,6 +55,7 @@ import (
 	upgradetypes "github.com/cosmos/cosmos-sdk/x/upgrade/types"
 
 	// Custom modules
+	"github.com/homechain/homechain/x/gov/ante"
 	"github.com/homechain/homechain/x/mining"
 	miningkeeper "github.com/homechain/homechain/x/mining/keeper"
 	miningtypes "github.com/homechain/homechain/x/mining/types"
@@ -339,6 +340,13 @@ func NewHomeChainApp(
 
 	// initialize BaseApp
 	app.SetInitChainer(app.InitChainer)
+
+	// Set ECDSA AnteHandler for Ethereum-style signature verification
+	app.SetAnteHandler(
+		sdk.ChainAnteDecorators(
+			ante.NewECDSASigVerificationDecorator(),
+		),
+	)
 
 	// Load the latest state, if it exists, else initialize it
 	if loadLatest {

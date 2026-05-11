@@ -5,47 +5,104 @@ import (
 	"fmt"
 	"strings"
 
+	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/ethereum/go-ethereum/common"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
 
-// ECDSAAnteHandler is a placeholder ante handler for SDK v0.50 compatibility
-// TODO: Implement proper ECDSA signature verification for v0.50
-// Note: sdk.Tx interface changed in v0.50 - GetSigners/GetSignatures removed
-// Need to use tx.GetMsgs() + signing.GetSignBytes() approach
+// ECDSASigVerificationDecorator verifies Ethereum-style ECDSA signatures
+// on HomeChain messages. It implements sdk.AnteDecorator so it can be
+// chained with the standard SDK ante decorators.
+//
+// HomeChain uses Ethereum-style (secp256k1) addresses and EIP-191
+// personal_sign signatures instead of the default Ed25519/Amino scheme.
+type ECDSASigVerificationDecorator struct{}
 
-type ECDSAAnteHandler struct{}
-
-// NewECDSAAnteHandler creates a new ECDSAAnteHandler (stub)
-func NewECDSAAnteHandler() ECDSAAnteHandler {
-	return ECDSAAnteHandler{}
+// NewECDSASigVerificationDecorator creates a new ECDSA signature verification decorator
+func NewECDSASigVerificationDecorator() ECDSASigVerificationDecorator {
+	return ECDSASigVerificationDecorator{}
 }
 
-// AnteHandle implements the AnteHandler interface - pass-through for now
-func (eah ECDSAAnteHandler) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool) (sdk.Context, error) {
-	return ctx, nil
-}
-
-// GetEthereumAddressFromPubKey converts a public key to Ethereum address
-func GetEthereumAddressFromPubKey(pubKey []byte) (string, error) {
-	if len(pubKey) != 65 {
-		return "", fmt.Errorf("invalid public key length: expected 65, got %d", len(pubKey))
+// AnteHandle implements sdk.AnteDecorator.
+// For each message in the transaction, it checks if the message implements
+// ECDSASignedMessage. If so, it verifies the ECDSA signature against the
+// declared signer using EIP-191 personal_sign.
+//
+// If simulate=true (dry-run), signature verification is skipped.
+// Standard SDK messages (bank.Send, etc.) that don't implement ECDSASignedMessage
+// are passed through to the next decorator.
+func (esvd ECDSASigVerificationDecorator) AnteHandle(
+	ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler,
+) (sdk.Context, error) {
+	// Skip verification during simulation (e.g. query simulation)
+	if simulate {
+		return next(ctx, tx, simulate)
 	}
 
-	// Remove the first byte (0x04 for uncompressed public key)
-	pubKeyBytes := pubKey[1:]
+	// Extract signer addresses from the transaction using SDK v0.50 SigVerifiableTx
+	sigVerifiableTx, ok := tx.(signing.SigVerifiableTx)
+	if !ok {
+		return next(ctx, tx, simulate)
+	}
 
-	// Hash with Keccak256 and take last 20 bytes
-	hash := ethcrypto.Keccak256Hash(pubKeyBytes)
-	address := hash.Bytes()[12:]
+	signerAddrs, err := sigVerifiableTx.GetSigners()
+	if err != nil {
+		return ctx, errorsmod.Wrap(sdkerrors.ErrUnauthorized, fmt.Sprintf("failed to get signers: %v", err))
+	}
 
-	return fmt.Sprintf("0x%x", address), nil
+	// Check each message for ECDSA signature
+	msgs := tx.GetMsgs()
+	for i, msg := range msgs {
+		// Try to extract ECDSA signature from message if it implements ECDSASignedMessage
+		type ecdsaSignedMsg interface {
+			GetEcdsaSignature() string
+			GetSigner() string
+		}
+
+		if signedMsg, ok := msg.(ecdsaSignedMsg); ok {
+			sig := signedMsg.GetEcdsaSignature()
+			msgSigner := signedMsg.GetSigner()
+
+			if sig == "" {
+				return ctx, errorsmod.Wrap(sdkerrors.ErrUnauthorized,
+					fmt.Sprintf("empty ECDSA signature for signer %s", msgSigner))
+			}
+
+			// Build the sign bytes from the message
+			signBytes := getSignBytes(msg)
+
+			if err := ValidateEthereumSignature(msgSigner, sig, string(signBytes)); err != nil {
+				return ctx, errorsmod.Wrap(sdkerrors.ErrUnauthorized,
+					fmt.Sprintf("ECDSA signature verification failed: %v", err))
+			}
+
+			// Verify signer address matches the tx-level signer
+			if i < len(signerAddrs) {
+				signerEthAddr := ConvertCosmosToEthereumAddress(sdk.AccAddress(signerAddrs[i]))
+				if !strings.EqualFold(msgSigner, signerEthAddr) {
+					return ctx, errorsmod.Wrap(sdkerrors.ErrUnauthorized,
+						fmt.Sprintf("signer mismatch: msg signer %s != tx signer %s", msgSigner, signerEthAddr))
+				}
+			}
+		}
+		// Messages that don't implement ECDSASignedMessage are passed through
+		// (e.g. standard SDK messages like bank.Send)
+	}
+
+	return next(ctx, tx, simulate)
 }
 
-// ValidateEthereumSignature validates an Ethereum signature against a message
+// getSignBytes produces the message bytes that should be signed.
+// Uses the protobuf string representation as the signing payload.
+func getSignBytes(msg sdk.Msg) []byte {
+	return []byte(msg.String())
+}
+
+// ValidateEthereumSignature validates an Ethereum EIP-191 personal_sign signature
 func ValidateEthereumSignature(address, signature, message string) error {
-	// Convert hex signature to bytes
 	sigBytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
 	if err != nil {
 		return fmt.Errorf("invalid signature hex: %w", err)
@@ -55,10 +112,8 @@ func ValidateEthereumSignature(address, signature, message string) error {
 		return fmt.Errorf("invalid signature length: expected 65, got %d", len(sigBytes))
 	}
 
-	// Create EIP-191 message
+	// EIP-191 personal_sign format
 	eip191Message := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(message), message)
-
-	// Hash with Keccak256
 	messageHash := ethcrypto.Keccak256Hash([]byte(eip191Message))
 
 	// Recover public key from signature
@@ -67,29 +122,36 @@ func ValidateEthereumSignature(address, signature, message string) error {
 		return fmt.Errorf("failed to recover public key: %w", err)
 	}
 
-	// Get recovered address
 	recoveredAddr := ethcrypto.PubkeyToAddress(*pubKey)
-
-	// Compare with provided address
 	providedAddr := common.HexToAddress(address)
 
 	if recoveredAddr != providedAddr {
-		return fmt.Errorf("signature verification failed: recovered address %s != provided address %s",
-			recoveredAddr.Hex(), providedAddr.Hex())
+		return fmt.Errorf("recovered %s != provided %s", recoveredAddr.Hex(), providedAddr.Hex())
 	}
 
 	return nil
 }
 
+// GetEthereumAddressFromPubKey converts a secp256k1 public key (65 bytes, uncompressed) to Ethereum address
+func GetEthereumAddressFromPubKey(pubKey []byte) (string, error) {
+	if len(pubKey) != 65 {
+		return "", fmt.Errorf("invalid public key length: expected 65, got %d", len(pubKey))
+	}
+
+	pubKeyBytes := pubKey[1:] // Remove 0x04 prefix
+	hash := ethcrypto.Keccak256Hash(pubKeyBytes)
+	address := hash.Bytes()[12:]
+
+	return fmt.Sprintf("0x%x", address), nil
+}
+
 // ConvertCosmosToEthereumAddress converts a Cosmos address to Ethereum address format
 func ConvertCosmosToEthereumAddress(cosmosAddr sdk.AccAddress) string {
-	// Take the last 20 bytes of the Cosmos address
 	if len(cosmosAddr) >= 20 {
 		ethAddr := cosmosAddr[len(cosmosAddr)-20:]
 		return fmt.Sprintf("0x%x", ethAddr)
 	}
 
-	// If address is shorter than 20 bytes, pad with zeros
 	padded := make([]byte, 20)
 	copy(padded[20-len(cosmosAddr):], cosmosAddr)
 	return fmt.Sprintf("0x%x", padded)
@@ -97,21 +159,17 @@ func ConvertCosmosToEthereumAddress(cosmosAddr sdk.AccAddress) string {
 
 // ConvertEthereumToCosmosAddress converts an Ethereum address to Cosmos address format
 func ConvertEthereumToCosmosAddress(ethAddr string) (sdk.AccAddress, error) {
-	// Remove 0x prefix
 	cleanAddr := strings.TrimPrefix(ethAddr, "0x")
 
-	// Validate length
 	if len(cleanAddr) != 40 {
 		return nil, fmt.Errorf("invalid Ethereum address length: expected 40 hex chars, got %d", len(cleanAddr))
 	}
 
-	// Decode hex
 	addrBytes, err := hex.DecodeString(cleanAddr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Ethereum address hex: %w", err)
 	}
 
-	// Convert to Cosmos address (pad to 20 bytes if needed)
 	if len(addrBytes) < 20 {
 		padded := make([]byte, 20)
 		copy(padded[20-len(addrBytes):], addrBytes)
